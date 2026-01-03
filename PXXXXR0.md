@@ -91,39 +91,51 @@ This proposal therefore targets the language rule itself, so that brace-initiali
 
 ## FAQ / Discussion summary (questions and answers)
 
-**Q: Why should integer-to-floating list-initialization ever be non-narrowing?**\
-**A:** Narrowing is intended to prevent *potential loss*. For ISO/IEC 60559 binary floating-point types, if the destination precision (`digits(F)`) is at least the number of value bits of the source integer (`digits(I)`), then *all* values are exactly representable. Such conversions are provably lossless for all runtime values and therefore should not be considered narrowing.
+**Q:** Why should integer-to-floating list-initialization ever be non-narrowing?
 
-**Q: Why wasn’t this done when list-initialization was introduced (C++11)?**\
+**A:** Narrowing is intended to prevent potential loss. For ISO/IEC 60559 binary floating-point types, if the destination precision (`digits(F)`) is at least the number of value bits of the source integer (`digits(I)`), then all values are exactly representable. Such conversions are provably lossless for all runtime values and therefore should not be considered narrowing.
+
+**Q:** Why wasn’t this done when list-initialization was introduced (C++11)?
+
 **A:** The original rules were intentionally conservative and predate widespread, reliable exposure of floating-point properties via standardized traits. Today, the language exposes `digits`, `radix`, and `is_iec559`, enabling a clean, type-based rule aligned with the original intent of narrowing.
 
-**Q: Doesn’t this make code compile on one platform but not another?**\
-**A:** Yes, conditionally—by design. Narrowing rules already depend on implementation-defined properties (precision, representation, constant evaluation). This proposal only *widens* the set of accepted programs on implementations where the conversion is provably lossless; it does not make any currently well-formed program ill-formed.
+**Q:** Doesn’t this make code compile on one platform but not another?
 
-**Q: Is this a portability hazard?**\
+**A:** Yes, conditionally—by design. Narrowing rules already depend on implementation-defined properties (precision, representation, constant evaluation). This proposal only widens the set of accepted programs on implementations where the conversion is provably lossless; it does not make any currently well-formed program ill-formed.
+
+**Q:** Is this a portability hazard?
+
 **A:** It is a visible, compile-time difference, not a silent runtime divergence. Programs requiring strict portability can continue to use explicit casts or non-list-initialization forms. The proposal improves semantic clarity without weakening safety.
 
-**Q: Why require **``**?**\
-**A:** The simple criterion `digits(F) >= digits(I)` guarantees exact integer representability for *binary* floating-point. For non-binary radices (e.g., decimal), exact representability depends on additional properties not captured by `digits` alone. Extending to non-binary formats would require a different rule.
+**Q:** Why require `numeric_limits<F>::radix == 2`?
 
-**Q: Why require **``**?**\
+**A:** The simple criterion `digits(F) >= digits(I)` guarantees exact integer representability for binary floating-point. For non-binary radices (for example, decimal), exact representability depends on additional properties not captured by `digits` alone. Extending to non-binary formats would require a different rule.
+
+**Q:** Why require `numeric_limits<F>::is_iec559`?
+
 **A:** It anchors the rule to a well-defined standard model for floating-point representation and precision, ensuring the stated exactness properties are meaningful and reliable.
 
-**Q: Is the sign bit counted in **``**?**\
+**Q:** Is the sign bit counted in `digits`?
+
 **A:** No. For integers, `digits` counts value bits (excluding the sign). For floating-point, `digits` counts significand precision (excluding the sign and including the implicit leading bit for binary formats). This makes `digits(F) >= digits(I)` the correct comparison.
 
-**Q: Why not base the rule on runtime values (range checks)?**\
-**A:** Narrowing rules are intentionally type-based. Value-based checks would be complex, brittle, and inconsistent with existing list-initialization semantics (except for the limited constant-expression carveout).
+**Q:** Why not base the rule on runtime values (range checks)?
 
-**Q: Why not just use **``** or a helper like **``**?**\
-**A:** `static_cast` opts out of narrowing checks entirely. A helper function would be opt-in and verbose, weakening the safety-by-default guarantee of brace-initialization. This proposal improves the core language rule so `{}` continues to mean “no information loss.”
+**A:** Narrowing rules are intentionally type-based. Value-based checks would be complex, brittle, and inconsistent with existing list-initialization semantics, except for the limited constant-expression carveout.
 
-**Q: Why not restrict the rule to **``** only?**\
+**Q:** Why not just use `static_cast` or a helper like `lossless_cast`?
+
+**A:** `static_cast` opts out of narrowing checks entirely. A helper function would be opt-in and verbose, weakening the safety-by-default guarantee of brace-initialization. This proposal improves the core language rule so brace-initialization continues to mean no information loss.
+
+**Q:** Why not restrict the rule to `std::floatNN_t` only?
+
 **A:** While `<stdfloat>` types provide clear, fixed-format options, restricting the rule would fragment the language. A trait-based rule applies uniformly to `std::floatNN_t` and to standard floating-point types when they satisfy the same semantic properties.
 
-**Q: Are **``** the same as **``**/**``**?**\
+**Q:** Are `std::floatNN_t` the same as `float` or `double`?
+
 **A:** Not necessarily. They are extended floating-point types corresponding to IEC 60559 interchange formats and may be distinct types. This proposal intentionally relies on `numeric_limits` rather than type identity.
 
-**Q: Does this change overload resolution or runtime behavior?**\
-**A:** No. It only affects whether certain brace-initializations are considered narrowing (i.e., well-formed). It does not change runtime semantics or overload resolution beyond the existing effects of list-initialization.
+**Q:** Does this change overload resolution or runtime behavior?
+
+**A:** No. It only affects whether certain brace-initializations are considered narrowing (that is, well-formed). It does not change runtime semantics or overload resolution beyond the existing effects of list-initialization.
 
