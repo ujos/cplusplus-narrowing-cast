@@ -34,12 +34,13 @@ An integer-to-floating conversion is not narrowing when:
 
 Modify the definition of narrowing conversions as follows.
 
-Replace the bullet covering conversions from integer types to floating-point types with wording equivalent to:
+Replace bullet (7.3) with the following:
 
-> A conversion from an integer type to a floating-point type is narrowing, except where:
->
-> - the source is a constant expression and the converted value is exactly representable and round-trips correctly, or
-> - the source is an integer type `I`, the destination is a floating-point type `F`, `numeric_limits<F>::is_iec559` is true, `numeric_limits<F>::radix == 2`, and `numeric_limits<F>::digits >= numeric_limits<I>::digits`.
+> (7.3) from an integer type or unscoped enumeration type to a floating-point type, except where
+> 
+>   (7.3.1) the source is a constant expression and the actual value after conversion will fit into the target type and will produce the original value when converted back to the original type, or
+> 
+>   (7.3.2) the source is an integer type `I`, the destination is a floating-point type `F`, `numeric_limits<F>::is_iec559` is true, `numeric_limits<F>::radix == 2`, and `numeric_limits<F>::digits >= numeric_limits<I>::digits`.
 
 ## Examples
 
@@ -138,4 +139,3 @@ This proposal therefore targets the language rule itself, so that brace-initiali
 **Q:** Does this change overload resolution or runtime behavior?
 
 **A:** No. It only affects whether certain brace-initializations are considered narrowing (that is, well-formed). It does not change runtime semantics or overload resolution beyond the existing effects of list-initialization.
-
