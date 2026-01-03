@@ -79,6 +79,8 @@ This proposal intentionally makes the acceptance of certain list-initializations
 
 The proposal does not render any currently well-formed program ill-formed. It may, however, make some previously ill-formed brace-initializations well-formed on implementations where the integer-to-floating conversion is provably lossless for all values of the source type. Programs that require portability across implementations with differing floating-point semantics may continue to use explicit casts or non-list-initialization forms.
 
+It is worth noting that, on implementations where `double` conforms to ISO/IEC 60559 (which is the case for the vast majority of contemporary platforms), developers already routinely rely on integer-to-`double` conversions being exact and use `static_cast` or non-list-initialization to silence narrowing diagnostics. Such code already encodes an assumption about the floating-point semantics of the target platform. When ported to an implementation that does not provide ISO/IEC 60559 semantics, this assumption may no longer hold and code may continue to compile but exhibit different or incorrect behavior, regardless of this proposal. The present change does not introduce a new portability hazard; it makes an existing, widely relied-upon assumption explicit and checkable at the language level.
+
 ## Relationship to `<stdfloat>` and `std::floatNN_t`
 
 C++23 introduces fixed-width floating-point types in `<stdfloat>`, such as `std::float16_t`, `std::float32_t`, `std::float64_t`, and `std::float128_t`, when provided by the implementation. These types are specified as extended floating-point types corresponding to ISO/IEC 60559 interchange formats.
