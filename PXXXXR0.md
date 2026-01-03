@@ -52,6 +52,21 @@ int64_t j = runtime();
 double e{j};   // still narrowing
 ```
 
+The following example demonstrates a converting constructor that accepts an `Other` type and uses list-initialization internally:
+
+```cpp
+struct Wrapper {
+  double value;
+
+  template <class Other>
+  explicit Wrapper(Other other)
+    : value{other} {} // OK when Other is an integer type with digits <= digits(double)
+};
+
+int32_t k = runtime();
+Wrapper w{k};          // well-formed under this proposal
+```
+
 ## Discussion: radix restriction and non-binary floating-point
 
 This proposal intentionally restricts its scope to ISO/IEC 60559 binary floating-point types. For binary floating-point, the relationship between significand precision and exact integer representability is simple and well-defined. For non-binary radices, including IEC 60559 decimal formats, exact representability depends on additional format properties not captured solely by `digits`.
@@ -139,3 +154,4 @@ This proposal therefore targets the language rule itself, so that brace-initiali
 **Q:** Does this change overload resolution or runtime behavior?
 
 **A:** No. It only affects whether certain brace-initializations are considered narrowing (that is, well-formed). It does not change runtime semantics or overload resolution beyond the existing effects of list-initialization.
+
