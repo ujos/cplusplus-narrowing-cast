@@ -1,3 +1,16 @@
+---
+title: "Relax narrowing for lossless integer → ISO/IEC 60559 binary floating conversions"
+document: P0000R0
+date: today
+audience:
+  - Evolution Working Group
+author:
+  - name: Dmytro Ovdiienko
+    email: Dmytro.Ovdiienko@gmail.com
+toc: true
+toc-depth: 2
+---
+
 # PXXXXR0 — Relax narrowing for lossless integer → ISO/IEC 60559 binary floating conversions
 
 ## Abstract
@@ -8,39 +21,73 @@ This paper proposes relaxing list-initialization narrowing rules so that an impl
 
 List-initialization prohibits narrowing conversions to prevent silent loss of information. Under current wording, conversions from integer types to floating-point types are generally considered narrowing, except in the case of constant expressions whose values round-trip exactly.
 
-On platforms where standard floating-point types or extended floating-point types conform to ISO/IEC 60559 and use a binary radix, the destination floating-point type can exactly represent all values of an integer type whose number of value bits does not exceed the floating-point precision. These conversions are provably lossless for all possible runtime values and should therefore not be considered narrowing.
+In practice, this rule leads to surprising and overly restrictive behavior in generic code once values are forwarded through an intermediate object or function parameter and therefore cease to be constant expressions. For example:
+
+```cpp
+template<typename T>
+struct X {
+  T value;
+
+  template<typename U>
+  X(U const& other) : value{other} {}
+};
+
+X<double> v = 1; // ill-formed: narrowing conversion from int to double
+```
+
+Although the value `1` is exactly representable in `double`, the conversion is rejected because `other` is a named lvalue and the constant-expression exception in [dcl.init.list] no longer applies. As a result, code that is provably lossless and routinely relied upon in practice becomes ill-formed solely due to the mechanics of value propagation, not due to any actual risk of information loss. This pattern arises naturally in forwarding constructors, wrapper types, and generic abstractions that propagate values through intermediate parameters.
+
+On platforms where the destination floating-point type follows ISO/IEC 60559 binary semantics, it is a well-understood property that all values of an integer type whose number of value bits does not exceed the floating-point precision are exactly representable. In such cases, integer-to-floating conversions are provably lossless for all possible runtime values, independent of whether the source expression is a constant expression or an lvalue.
 
 ## Design
 
-The proposal relies exclusively on existing standard type traits:
+This proposal addresses the mismatch described in the Motivation section by refining the narrowing rules to recognize certain integer-to-floating conversions as non-narrowing based on a simple, type-based criterion. Doing so restores the intended meaning of brace-initialization as a guard against actual loss of information, while avoiding unnecessary rejection of correct and widely-used generic code.
 
-- `std::numeric_limits<T>::digits`
-- `std::numeric_limits<T>::radix`
-- `std::numeric_limits<T>::is_iec559`
+### Scope and non-goals
 
-For ISO/IEC 60559 binary floating-point types, the condition `digits(F) >= digits(I)` guarantees exact representability of all values of the integer type `I` in the floating-point type `F`.
+This proposal is intentionally limited in scope. It does not attempt to address cases such as:
+
+```cpp
+X<short> v = 1;
+```
+
+where `1` is an `int` literal and the conversion to `short` may be lossy for some values. While it could be desirable in principle for the language to select a “least applicable” integer type or otherwise reason about literal ranges, such behavior is not the intent of this proposal. More importantly, changing the rules for integer-to-integer list-initialization in this way could render existing, currently well-formed code ill-formed. This paper therefore confines itself to integer-to-floating conversions where a lossless conversion for all values can be established purely at the type level.
+
+The proposal relies on existing semantic properties of integer and floating-point types as defined by the core language and the floating-point model referenced by the standard (in particular ISO/IEC 60559). For clarity and conciseness, this paper refers to these properties using the corresponding library traits (`numeric_limits<T>::digits`, `numeric_limits<T>::radix`, and `numeric_limits<T>::is_iec559`), but these names are used for *exposition only*; the intent is to rely on the underlying language-defined properties, not to introduce a dependency of the core language rules on the standard library.
+
+For ISO/IEC 60559 binary floating-point types, the condition that the precision of the destination floating-point type is at least the number of value bits of the source integer type guarantees exact representability of all values of the integer type `I` in the floating-point type `F`.
+
+Throughout the remainder of this paper (including examples and discussion sections), references to `numeric_limits`, `digits(F)`, and related library traits are used purely as concise, expository shorthand for these underlying core-language properties, and do not imply a dependency of the language rules on the standard library.
 
 ## Proposal
 
 An integer-to-floating conversion is not narrowing when:
 
-- the destination type `F` satisfies `numeric_limits<F>::is_iec559`,
-- `numeric_limits<F>::radix == 2`, and
-- `numeric_limits<F>::digits >= numeric_limits<I>::digits`, where `I` is the source integer type.
+- the destination floating-point type conforms to ISO/IEC 60559,
+- the destination floating-point type has a binary radix, and
+- the destination floating-point type has a precision of at least as many value bits as the source integer type.
 
 ## Proposed wording
 
 ### [dcl.init.list]
 
-Modify the definition of narrowing conversions as follows.
-
 Replace bullet (7.3) with the following:
 
 > (7.3) from an integer type or unscoped enumeration type to a floating-point type, except where
-> 
->   (7.3.1) the source is a constant expression and the actual value after conversion will fit into the target type and will produce the original value when converted back to the original type, or
-> 
->   (7.3.2) the source is an integer type `I`, the destination is a floating-point type `F`, `numeric_limits<F>::is_iec559` is true, `numeric_limits<F>::radix == 2`, and `numeric_limits<F>::digits >= numeric_limits<I>::digits`.
+>
+> (7.3.1) the source is a constant expression and the actual value after conversion will fit into the target type and will produce the original value when converted back to the original type, or
+>
+> (7.3.2) the source is an integer type *I* and the destination is a floating-point type *F* such that *F* conforms to ISO/IEC 60559, has a binary radix, and has a precision of at least as many value bits as the source integer type *I*.
+
+## Feature-test macro
+
+For consistency with other core-language changes, this proposal introduces a feature-test macro to allow programs to detect support for the relaxed narrowing rules in [dcl.init.list].
+
+```cpp
+#define __cpp_narrowing_integer_to_floating 20YYMML
+```
+
+The macro is defined if and only if the implementation applies the updated narrowing rules for integer-to-floating list-initialization as specified in this paper.
 
 ## Examples
 
@@ -75,11 +122,20 @@ Extending this proposal to non-binary floating-point formats would require a dif
 
 ## Portability considerations
 
-This proposal intentionally makes the acceptance of certain list-initializations conditional on semantic properties of the destination floating-point type. This is consistent with existing narrowing rules, which already depend on implementation-defined characteristics such as floating-point precision, constant-expression evaluation, and representation details.
-
 The proposal does not render any currently well-formed program ill-formed. It may, however, make some previously ill-formed brace-initializations well-formed on implementations where the integer-to-floating conversion is provably lossless for all values of the source type. Programs that require portability across implementations with differing floating-point semantics may continue to use explicit casts or non-list-initialization forms.
 
 It is worth noting that, on implementations where `double` conforms to ISO/IEC 60559 (which is the case for the vast majority of contemporary platforms), developers already routinely rely on integer-to-`double` conversions being exact and use `static_cast` or non-list-initialization to silence narrowing diagnostics. Such code already encodes an assumption about the floating-point semantics of the target platform. When ported to an implementation that does not provide ISO/IEC 60559 semantics, this assumption may no longer hold and code may continue to compile but exhibit different or incorrect behavior, regardless of this proposal. The present change does not introduce a new portability hazard; it makes an existing, widely relied-upon assumption explicit and checkable at the language level.
+
+As with existing narrowing rules, acceptance of certain list-initializations may differ across implementations. Existing C++ already permits platform-dependent well-formedness for list-initialization. For example, the following code may be well-formed on an implementation where `int` is at least 32 bits, but ill-formed on an implementation where `int` is 16 bits, because the conversion from `std::int32_t` to `int` becomes narrowing for non-constant expressions:
+
+```
+#include <cstdint>
+
+std::int32_t runtime32();
+
+std::int32_t i = runtime32();
+int x{i}; // may be ill-formed if int is 16 bits
+```
 
 ## Relationship to `<stdfloat>` and `std::floatNN_t`
 
@@ -93,11 +149,15 @@ This proposal does not special-case `std::floatNN_t`, but instead relies on sema
 
 The narrowing rules for list-initialization were originally introduced as part of C++11, with the goal of preventing silent loss of information during initialization. At that time, the rules were intentionally conservative, particularly for conversions from integer types to floating-point types, and included a limited exception for constant expressions whose values could be proven to round-trip exactly.
 
-Since then, the C++ standard has evolved to expose more precise information about floating-point representations and semantics through library facilities such as `std::numeric_limits`, as well as through the introduction of extended and fixed-width floating-point types. Several proposals in this area have focused on making floating-point properties explicit and usable by programs, including work on extended floating-point types and on clarifying the requirements associated with ISO/IEC 60559 conformance.
+Since then, practice has converged further on ISO/IEC 60559 binary floating-point for mainstream targets, and the ecosystem has accumulated substantial experience with list-initialization. This makes it easier to justify refining the original rule without increasing risk for existing code. Several accepted proposals in this area have focused on making floating-point properties explicit and usable by programs. Notably, the ISO/IEC TS 18661 series (integrated into C++17 and later) and subsequent core and library work established a well-defined model for IEC 60559 floating-point behavior. More recently, proposals leading to C++23’s `<stdfloat>` header (for example, P1467 and related papers) introduced fixed-width floating-point types corresponding to IEC 60559 interchange formats, making precision and representation properties explicit and portable.
 
-However, the core language rules governing narrowing conversions in list-initialization have not been revisited to take advantage of this additional information. In particular, no prior proposal has addressed the case of integer-to-floating conversions that are provably lossless for all values of the source type based solely on the precision of the destination floating-point type.
+In parallel, a number of proposals have explored *library-level* facilities for reasoning about value-preserving and narrowing conversions. Proposal P2509 focuses on value-preserving conversions by providing traits that allow programs to determine whether a conversion preserves the represented value. Proposal P0870 addresses narrowing conversions by proposing traits that allow programs to reason about whether a conversion may be narrowing.
 
-This paper builds on the original intent of list-initialization narrowing by refining the rules to distinguish between potentially lossy conversions and those that are guaranteed to be exact for all values, using existing, standardized type traits.
+These library facilities are complementary to the present proposal. They enable developers to write more robust and explicit code by detecting and constraining conversions at the library level. However, they cannot integrate with the core language’s narrowing rules or affect the semantics of brace-initialization itself.
+
+This proposal addresses that remaining gap by embedding a value-preserving criterion directly into the core language’s narrowing rules for a specific, well-defined class of conversions. In this sense, the present proposal acts as a *last-level guard*: it ensures that brace-initialization continues to enforce the absence of information loss by default, while library-level traits such as those proposed in P2509 and P0870 provide additional tools for developers to express and enforce conversion policies explicitly in generic code.
+
+This paper therefore builds on the original intent of list-initialization narrowing by refining the rules to distinguish between potentially lossy conversions and those that are guaranteed to be exact for all values, using properties already defined by the core language and the ISO/IEC 60559 floating-point model.
 
 ## Why a library-only solution is insufficient
 
@@ -107,53 +167,4 @@ However, a library-only approach cannot replace a core-language change in this a
 
 This proposal therefore targets the language rule itself, so that brace-initialization continues to express a uniform and immediate guarantee of lossless conversion without requiring additional boilerplate or user intervention.
 
-## FAQ / Discussion summary (questions and answers)
-
-**Q:** Why should integer-to-floating list-initialization ever be non-narrowing?
-
-**A:** Narrowing is intended to prevent potential loss. For ISO/IEC 60559 binary floating-point types, if the destination precision (`digits(F)`) is at least the number of value bits of the source integer (`digits(I)`), then all values are exactly representable. Such conversions are provably lossless for all runtime values and therefore should not be considered narrowing.
-
-**Q:** Why wasn’t this done when list-initialization was introduced (C++11)?
-
-**A:** The original rules were intentionally conservative and predate widespread, reliable exposure of floating-point properties via standardized traits. Today, the language exposes `digits`, `radix`, and `is_iec559`, enabling a clean, type-based rule aligned with the original intent of narrowing.
-
-**Q:** Doesn’t this make code compile on one platform but not another?
-
-**A:** Yes, conditionally—by design. Narrowing rules already depend on implementation-defined properties (precision, representation, constant evaluation). This proposal only widens the set of accepted programs on implementations where the conversion is provably lossless; it does not make any currently well-formed program ill-formed.
-
-**Q:** Is this a portability hazard?
-
-**A:** It is a visible, compile-time difference, not a silent runtime divergence. Programs requiring strict portability can continue to use explicit casts or non-list-initialization forms. The proposal improves semantic clarity without weakening safety.
-
-**Q:** Why require `numeric_limits<F>::radix == 2`?
-
-**A:** The simple criterion `digits(F) >= digits(I)` guarantees exact integer representability for binary floating-point. For non-binary radices (for example, decimal), exact representability depends on additional properties not captured by `digits` alone. Extending to non-binary formats would require a different rule.
-
-**Q:** Why require `numeric_limits<F>::is_iec559`?
-
-**A:** It anchors the rule to a well-defined standard model for floating-point representation and precision, ensuring the stated exactness properties are meaningful and reliable.
-
-**Q:** Is the sign bit counted in `digits`?
-
-**A:** No. For integers, `digits` counts value bits (excluding the sign). For floating-point, `digits` counts significand precision (excluding the sign and including the implicit leading bit for binary formats). This makes `digits(F) >= digits(I)` the correct comparison.
-
-**Q:** Why not base the rule on runtime values (range checks)?
-
-**A:** Narrowing rules are intentionally type-based. Value-based checks would be complex, brittle, and inconsistent with existing list-initialization semantics, except for the limited constant-expression carveout.
-
-**Q:** Why not just use `static_cast` or a helper like `lossless_cast`?
-
-**A:** `static_cast` opts out of narrowing checks entirely. A helper function would be opt-in and verbose, weakening the safety-by-default guarantee of brace-initialization. This proposal improves the core language rule so brace-initialization continues to mean no information loss.
-
-**Q:** Why not restrict the rule to `std::floatNN_t` only?
-
-**A:** While `<stdfloat>` types provide clear, fixed-format options, restricting the rule would fragment the language. A trait-based rule applies uniformly to `std::floatNN_t` and to standard floating-point types when they satisfy the same semantic properties.
-
-**Q:** Are `std::floatNN_t` the same as `float` or `double`?
-
-**A:** Not necessarily. They are extended floating-point types corresponding to IEC 60559 interchange formats and may be distinct types. This proposal intentionally relies on `numeric_limits` rather than type identity.
-
-**Q:** Does this change overload resolution or runtime behavior?
-
-**A:** No. It only affects whether certain brace-initializations are considered narrowing (that is, well-formed). It does not change runtime semantics or overload resolution beyond the existing effects of list-initialization.
 
