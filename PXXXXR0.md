@@ -128,7 +128,7 @@ It is worth noting that, on implementations where `double` conforms to ISO/IEC 6
 
 As with existing narrowing rules, acceptance of certain list-initializations may differ across implementations. Existing C++ already permits platform-dependent well-formedness for list-initialization. For example, the following code may be well-formed on an implementation where `int` is at least 32 bits, but ill-formed on an implementation where `int` is 16 bits, because the conversion from `std::int32_t` to `int` becomes narrowing for non-constant expressions:
 
-```
+```cpp
 #include <cstdint>
 
 std::int32_t runtime32();
