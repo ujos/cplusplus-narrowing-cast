@@ -44,6 +44,8 @@ The proposal relies on existing semantic properties of integer and floating-poin
 
 For ISO/IEC 60559 binary floating-point types, the condition that the precision of the destination floating-point type is at least the number of value bits of the source integer type guarantees exact representability of all values of the integer type `I` in the floating-point type `F`.
 
+In addition, this proposal intentionally restricts its scope to ISO/IEC 60559 *binary* floating-point types. For binary floating-point, the relationship between significand precision and exact integer representability is simple and well-defined. For non-binary radices, including IEC 60559 decimal formats, exact representability depends on additional format properties not captured solely by precision or value-bit counts. Extending this proposal to non-binary floating-point formats would therefore require a different and more complex criterion and is left as future work.
+
 Throughout the remainder of this paper (including examples and discussion sections), references to `numeric_limits`, `digits(F)`, and related library traits are used purely as concise, expository shorthand for these underlying core-language properties, and do not imply a dependency of the language rules on the standard library.
 
 ## Proposal
@@ -101,11 +103,7 @@ int32_t k = runtime();
 Wrapper w{k};          // well-formed under this proposal
 ```
 
-## Discussion: radix restriction and non-binary floating-point
 
-This proposal intentionally restricts its scope to ISO/IEC 60559 binary floating-point types. For binary floating-point, the relationship between significand precision and exact integer representability is simple and well-defined. For non-binary radices, including IEC 60559 decimal formats, exact representability depends on additional format properties not captured solely by `digits`.
-
-Extending this proposal to non-binary floating-point formats would require a different and more complex criterion and is therefore left as future work.
 
 ## Portability considerations
 
@@ -153,5 +151,4 @@ It is possible to express the predicate underlying this proposal as a constraine
 However, a library-only approach cannot replace a core-language change in this area. List-initialization is the only mechanism in C++ that enforces non-narrowing conversions by default, and it is widely used as a semantic signal that an initialization is intended to be free of information loss. Requiring an explicit helper function at each call site would make this guarantee opt-in and verbose, weakening the safety-by-default property that list-initialization was designed to provide.
 
 This proposal therefore targets the language rule itself, so that brace-initialization continues to express a uniform and immediate guarantee of lossless conversion without requiring additional boilerplate or user intervention.
-
 
