@@ -1,16 +1,3 @@
----
-title: "Relax narrowing for lossless integer → ISO/IEC 60559 binary floating conversions"
-document: P0000R0
-date: today
-audience:
-  - Evolution Working Group
-author:
-  - name: Dmytro Ovdiienko
-    email: Dmytro.Ovdiienko@gmail.com
-toc: true
-toc-depth: 2
----
-
 # PXXXXR0 — Relax narrowing for lossless integer → ISO/IEC 60559 binary floating conversions
 
 ## Abstract
