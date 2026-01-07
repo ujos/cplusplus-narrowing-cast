@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This paper proposes relaxing list-initialization narrowing rules so that an implicit conversion from an integer type to a floating-point type is not considered narrowing when the destination floating-point type adheres to ISO/IEC 60559, uses a binary radix, and has sufficient precision to exactly represent all values of the source integer type.
+This paper proposes relaxing list-initialization narrowing rules so that an implicit conversion from an integer type to a floating-point type is not considered narrowing when the destination floating-point type adheres to ISO/IEC 60559, has a binary radix, and has sufficient precision to exactly represent all values of the source integer type.
 
 ## Motivation
 
@@ -30,23 +30,27 @@ On platforms where the destination floating-point type follows ISO/IEC 60559 bin
 
 This proposal addresses the mismatch described in the Motivation section by refining the narrowing rules to recognize certain integer-to-floating conversions as non-narrowing based on a simple, type-based criterion. Doing so restores the intended meaning of brace-initialization as a guard against actual loss of information, while avoiding unnecessary rejection of correct and widely-used generic code.
 
-### Scope and non-goals
+### Exposition and language properties
 
-This proposal is intentionally limited in scope. It does not attempt to address cases such as:
+The proposal relies on existing semantic properties of integer and floating-point types as defined by the core language and the floating-point model referenced by the standard (in particular ISO/IEC 60559). For clarity and conciseness, this paper refers to these properties using the corresponding library traits (`numeric_limits<T>::digits`, `numeric_limits<T>::radix`, and `numeric_limits<T>::is_iec559`), but these names are used for *exposition only*; the intent is to rely on the underlying language-defined properties, not to introduce a dependency of the core language rules on the standard library.
+
+Throughout the remainder of this paper (including examples and discussion sections), references to `numeric_limits`, `digits(F)`, and related library traits are used purely as concise, expository shorthand for these underlying core-language properties, and do not imply a dependency of the language rules on the standard library.
+
+For ISO/IEC 60559 binary floating-point types, the condition that the precision of the destination floating-point type is at least the number of value bits of the source integer type guarantees exact representability of all values of the integer type `I` in the floating-point type `F`.
+
+### Binary floating-point restriction
+
+This proposal intentionally restricts its scope to ISO/IEC 60559 *binary* floating-point types. For binary floating-point, the relationship between significand precision and exact integer representability is simple and well-defined. For non-binary radices, including IEC 60559 decimal formats, exact representability depends on additional format properties not captured solely by precision or value-bit counts. Extending this proposal to non-binary floating-point formats would therefore require a different and more complex criterion and is intentionally out of scope for this proposal.
+
+### Integer-to-integer conversions
+
+This proposal does not attempt to address cases such as:
 
 ```cpp
 X<short> v = 1;
 ```
 
 where `1` is an `int` literal and the conversion to `short` may be lossy for some values. While it could be desirable in principle for the language to select a “least applicable” integer type or otherwise reason about literal ranges, such behavior is not the intent of this proposal. More importantly, changing the rules for integer-to-integer list-initialization in this way could render existing, currently well-formed code ill-formed. This paper therefore confines itself to integer-to-floating conversions where a lossless conversion for all values can be established purely at the type level.
-
-The proposal relies on existing semantic properties of integer and floating-point types as defined by the core language and the floating-point model referenced by the standard (in particular ISO/IEC 60559). For clarity and conciseness, this paper refers to these properties using the corresponding library traits (`numeric_limits<T>::digits`, `numeric_limits<T>::radix`, and `numeric_limits<T>::is_iec559`), but these names are used for *exposition only*; the intent is to rely on the underlying language-defined properties, not to introduce a dependency of the core language rules on the standard library.
-
-For ISO/IEC 60559 binary floating-point types, the condition that the precision of the destination floating-point type is at least the number of value bits of the source integer type guarantees exact representability of all values of the integer type `I` in the floating-point type `F`.
-
-In addition, this proposal intentionally restricts its scope to ISO/IEC 60559 *binary* floating-point types. For binary floating-point, the relationship between significand precision and exact integer representability is simple and well-defined. For non-binary radices, including IEC 60559 decimal formats, exact representability depends on additional format properties not captured solely by precision or value-bit counts. Extending this proposal to non-binary floating-point formats would therefore require a different and more complex criterion and is left as future work.
-
-Throughout the remainder of this paper (including examples and discussion sections), references to `numeric_limits`, `digits(F)`, and related library traits are used purely as concise, expository shorthand for these underlying core-language properties, and do not imply a dependency of the language rules on the standard library.
 
 ## Proposal
 
@@ -66,7 +70,7 @@ Replace bullet (7.3) with the following:
 >
 > (7.3.1) the source is a constant expression and the actual value after conversion will fit into the target type and will produce the original value when converted back to the original type, or
 >
-> (7.3.2) the source is an integer type *I* and the destination is a floating-point type *F* such that *F* conforms to ISO/IEC 60559, has a binary radix, and has a precision of at least as many value bits as the source integer type *I*.
+> (7.3.2) the source is an integer type I and the destination is a floating-point type F such that F conforms to ISO/IEC 60559, has a binary radix, and has a precision of at least as many value bits as the source integer type I.
 
 ## Feature-test macro
 
