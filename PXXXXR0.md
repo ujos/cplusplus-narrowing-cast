@@ -32,11 +32,17 @@ This proposal addresses the mismatch described in the Motivation section by refi
 
 ### Exposition and language properties
 
-The proposal relies on existing semantic properties of integer and floating-point types as defined by the core language and the floating-point model referenced by the standard (in particular ISO/IEC 60559). For clarity and conciseness, this paper refers to these properties using the corresponding library traits (`numeric_limits<T>::digits`, `numeric_limits<T>::radix`, and `numeric_limits<T>::is_iec559`), but these names are used for *exposition only*; the intent is to rely on the underlying language-defined properties, not to introduce a dependency of the core language rules on the standard library.
+The proposal relies on existing semantic properties of integer and floating-point types as defined by the core language and the floating-point model referenced by the standard (in particular ISO/IEC 60559).
+
+In particular, this proposal is guaranteed to apply to the fixed-width floating-point types provided by `<stdfloat>` (such as `std::float16_t`, `std::float32_t`, `std::float64_t`, and `std::float128_t`), when they are provided by the implementation. These types correspond to ISO/IEC 60559 interchange formats and therefore have well-defined precision and representation properties.
+
+For clarity and conciseness, this paper refers to these properties using the corresponding library traits (`numeric_limits<T>::digits`, `numeric_limits<T>::radix`, and `numeric_limits<T>::is_iec559`), but these names are used for exposition only; the intent is to rely on the underlying language-defined properties, not to introduce a dependency of the core language rules on the standard library.
 
 Throughout the remainder of this paper (including examples and discussion sections), references to `numeric_limits`, `digits(F)`, and related library traits are used purely as concise, expository shorthand for these underlying core-language properties, and do not imply a dependency of the language rules on the standard library.
 
 For ISO/IEC 60559 binary floating-point types, the condition that the precision of the destination floating-point type is at least the number of value bits of the source integer type guarantees exact representability of all values of the integer type `I` in the floating-point type `F`.
+
+Conceptually, a conversion from an integer type `I` to a floating-point type `F` is non-narrowing when every value of `I` is exactly representable in `F`; this paper specifies a portable, type-based sufficient condition for recognizing that property.
 
 ### Binary floating-point restriction
 
@@ -58,7 +64,7 @@ An integer-to-floating conversion is not narrowing when:
 
 - the destination floating-point type conforms to ISO/IEC 60559,
 - the destination floating-point type has a binary radix, and
-- the destination floating-point type has a precision of at least as many value bits as the source integer type.
+- the destination floating-point type can exactly represent all values of the source integer type.
 
 ## Proposed wording
 
@@ -70,7 +76,7 @@ Replace bullet (7.3) with the following:
 >
 > (7.3.1) the source is a constant expression and the actual value after conversion will fit into the target type and will produce the original value when converted back to the original type, or
 >
-> (7.3.2) the source is an integer type I and the destination is a floating-point type F such that F conforms to ISO/IEC 60559, has a binary radix, and has a precision of at least as many value bits as the source integer type I.
+> (7.3.2) the source is an integer type I and the destination is a floating-point type F such that F conforms to ISO/IEC 60559, has a binary radix, and can exactly represent all values of the source integer type I.
 
 ## Feature-test macro
 
@@ -81,6 +87,14 @@ For consistency with other core-language changes, this proposal introduces a fea
 ```
 
 The macro is defined if and only if the implementation applies the updated narrowing rules for integer-to-floating list-initialization as specified in this paper.
+
+## Impact on diagnostics
+
+Today, many compilers diagnose narrowing in list-initialization as required by the Standard, but may choose (under non-pedantic modes) to continue translation while emitting a warning (for example under `-Wnarrowing`). This is an implementation choice: the Standard requires a diagnostic for ill-formed programs but does not mandate the *form* of the diagnostic or whether translation must be terminated.
+
+If this proposal is adopted, the affected integer-to-floating list-initializations become well-formed when the stated conditions hold. In that case, the Standard would no longer require a diagnostic for those initializations, and implementations would be expected not to diagnose them as narrowing (including under options intended to report standard narrowing in list-initialization). Implementations may still provide optional warnings under other diagnostics groups (for example, general conversion warnings), but such warnings would be outside the scope of the narrowing rules.
+
+## Examples
 
 ## Examples
 
