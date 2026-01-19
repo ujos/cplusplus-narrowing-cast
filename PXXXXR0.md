@@ -28,7 +28,7 @@ On platforms where the destination floating-point type follows ISO/IEC 60559 bin
 
 ## Design
 
-This proposal addresses the mismatch described in the Motivation section by refining the narrowing rules to recognize certain integer-to-floating conversions as non-narrowing based on a simple, type-based criterion. Doing so restores the intended meaning of brace-initialization as a guard against actual loss of information, while avoiding unnecessary rejection of correct and widely-used generic code.
+This proposal addresses the mismatch described in the Motivation section by refining the narrowing rules to recognize certain integer-to-floating conversions as non-narrowing based on a simple, type-based criterion. Doing so reinforces the intended meaning of brace-initialization as a guard against actual loss of information, while avoiding unnecessary rejection of correct and widely-used generic code.
 
 ### Exposition and language properties
 
