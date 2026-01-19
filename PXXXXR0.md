@@ -36,7 +36,7 @@ The proposal relies on existing semantic properties of integer and floating-poin
 
 In particular, this proposal is guaranteed to apply to the fixed-width floating-point types provided by `<stdfloat>` (such as `std::float16_t`, `std::float32_t`, `std::float64_t`, and `std::float128_t`), when they are provided by the implementation. These types correspond to ISO/IEC 60559 interchange formats and therefore have well-defined precision and representation properties.
 
-For clarity and conciseness, this paper refers to these properties using the corresponding library traits (`numeric_limits<T>::digits`, `numeric_limits<T>::radix`, and `numeric_limits<T>::is_iec559`), but these names are used for exposition only; the intent is to rely on the underlying language-defined properties, not to introduce a dependency of the core language rules on the standard library.
+
 
 Throughout the remainder of this paper (including examples and discussion sections), references to `numeric_limits`, `digits(F)`, and related library traits are used purely as concise, expository shorthand for these underlying core-language properties, and do not imply a dependency of the language rules on the standard library.
 
@@ -96,8 +96,6 @@ If this proposal is adopted, the affected integer-to-floating list-initializatio
 
 ## Examples
 
-## Examples
-
 ```cpp
 int32_t i = runtime();
 double d{i};   // well-formed under this proposal
@@ -114,7 +112,7 @@ struct Wrapper {
 
   template <class Other>
   explicit Wrapper(Other other)
-    : value{other} {} // OK when Other is an integer type with digits <= digits(double)
+    : value{other} {} // OK when Other is an integer type with whose values are exactly representable in double
 };
 
 int32_t k = runtime();
