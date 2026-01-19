@@ -24,7 +24,7 @@ X<double> v = 1; // ill-formed: narrowing conversion from int to double
 
 Although the value `1` is exactly representable in `double`, the conversion is rejected because `other` is a named lvalue and the constant-expression exception in [dcl.init.list] no longer applies. As a result, code that is provably lossless and routinely relied upon in practice becomes ill-formed solely due to the mechanics of value propagation, not due to any actual risk of information loss. This pattern arises naturally in forwarding constructors, wrapper types, and generic abstractions that propagate values through intermediate parameters.
 
-On platforms where the destination floating-point type follows ISO/IEC 60559 binary semantics, it is a well-understood property that all values of an integer type whose number of value bits does not exceed the floating-point precision are exactly representable. In such cases, integer-to-floating conversions are provably lossless for all possible runtime values, independent of whether the source expression is a constant expression or an lvalue.
+On platforms where the destination floating-point type follows ISO/IEC 60559 binary semantics, it is a well-understood property that all values of an integer type whose number of value bits (i.e., bits used to represent the value, excluding any sign bit) does not exceed the floating-point precision are exactly representable. In such cases, integer-to-floating conversions are provably lossless for all possible runtime values, independent of whether the source expression is a constant expression or an lvalue.
 
 ## Design
 
